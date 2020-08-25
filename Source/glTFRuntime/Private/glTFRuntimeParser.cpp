@@ -1171,6 +1171,16 @@ bool FglTFRuntimeParser::LoadPrimitive(TSharedRef<FJsonObject> JsonPrimitiveObje
 		Primitive.Weights.Add(Weights);
 	}
 
+	if ((*JsonAttributesObject)->HasField("COLOR_0"))
+	{
+		if (!BuildFromAccessorField(JsonAttributesObject->ToSharedRef(), "COLOR_0", Primitive.Colors,
+			{ 3, 4 }, { 5126, 5121, 5123 }, true))
+		{
+			AddError("LoadPrimitive()", "Error loading COLOR_0");
+			return false;
+		}
+	}
+
 	int64 IndicesAccessorIndex;
 	if (JsonPrimitiveObject->TryGetNumberField("indices", IndicesAccessorIndex))
 	{
@@ -1225,7 +1235,7 @@ bool FglTFRuntimeParser::LoadPrimitive(TSharedRef<FJsonObject> JsonPrimitiveObje
 	int64 MaterialIndex;
 	if (JsonPrimitiveObject->TryGetNumberField("material", MaterialIndex))
 	{
-		Primitive.Material = LoadMaterial(MaterialIndex, MaterialsConfig);
+		Primitive.Material = LoadMaterial(MaterialIndex, MaterialsConfig, Primitive.Colors.Num() > 0);
 		if (!Primitive.Material)
 		{
 			AddError("LoadMaterial()", FString::Printf(TEXT("Unable to load material %lld"), MaterialIndex));

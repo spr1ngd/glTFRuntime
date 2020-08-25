@@ -3,6 +3,8 @@
 #include "glTFRuntimeParser.h"
 #include "StaticMeshDescription.h"
 #include "PhysXCookHelper.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 
 UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject> JsonMeshObject, const FglTFRuntimeStaticMeshConfig& StaticMeshConfig)
 {
@@ -48,6 +50,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 		TVertexInstanceAttributesRef<FVector> NormalsInstanceAttributesRef = MeshDescription->GetVertexInstanceNormals();
 		TVertexInstanceAttributesRef<FVector> TangentsInstanceAttributesRef = MeshDescription->GetVertexInstanceTangents();
 		TVertexInstanceAttributesRef<FVector2D> UVsInstanceAttributesRef = MeshDescription->GetVertexInstanceUVs();
+		TVertexInstanceAttributesRef<FVector4> ColorsInstanceAttributesRef = MeshDescription->GetVertexInstanceColors();
 
 		UVsInstanceAttributesRef.SetNumIndices(NumUVs);
 
@@ -99,6 +102,18 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 				}
 			}
 
+			if (Primitive.Colors.Num() > 0)
+			{
+				if (VertexIndex >= (uint32)Primitive.Colors.Num())
+				{
+					ColorsInstanceAttributesRef[NewVertexInstanceID] = FVector4(0, 0, 0, 0);
+				}
+				else
+				{
+					ColorsInstanceAttributesRef[NewVertexInstanceID] = Primitive.Colors[VertexIndex];
+				}
+			}
+
 			for (int32 UVIndex = 0; UVIndex < Primitive.UVs.Num(); UVIndex++)
 			{
 				if (VertexIndex >= (uint32)Primitive.UVs[UVIndex].Num())
@@ -147,7 +162,222 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 	StaticMesh->StaticMaterials = StaticMaterials;
 
 	TArray<UStaticMeshDescription*> MeshDescriptions = { MeshDescription };
-	StaticMesh->BuildFromStaticMeshDescriptions(MeshDescriptions, false);
+	//StaticMesh->BuildFromStaticMeshDescriptions(MeshDescriptions, false);
+
+
+	/*//StaticMesh->LightMapCoordinateIndex = NumUVs;
+
+	ENQUEUE_RENDER_COMMAND(InitColorVertexBufferCommand)(
+		[StaticMesh, bHasVertexColors](FRHICommandListImmediate& RHICmdList)
+	{
+		for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
+		{
+			Resources.bHasColorVertexData = bHasVertexColors;
+			if (!Resources.VertexBuffers.ColorVertexBuffer.IsInitialized())
+			{
+				Resources.VertexBuffers.ColorVertexBuffer.InitResource();
+				//Resources.VertexBuffers.ColorVertexBuffer.Init(Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices(), true);
+			}
+
+			//if (Resources.bHasColorVertexData)
+			{
+
+			}
+			UE_LOG(LogTemp, Error, TEXT("ColorVertexBuffer: %d %d %d"), Resources.VertexBuffers.ColorVertexBuffer.IsInitialized(), StaticMesh->RenderData->LODVertexFactories.Num(), Resources.bHasColorVertexData);
+		}
+	});
+
+	FlushRenderingCommands();
+
+	StaticMesh->RenderData->LODVertexFactories[0].ReleaseResources();
+	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
+	{
+		StaticMesh->RenderData->LODVertexFactories[0].InitVertexFactory(Resources, StaticMesh->RenderData->LODVertexFactories[0].VertexFactory, 0, StaticMesh, false);
+	}*/
+
+	/*StaticMesh->RenderData->LODVertexFactories[0].InitVertexFactory(Resources, StaticMesh->RenderData->LODVertexFactories[0].VertexFactory, 0, StaticMesh, false);
+
+
+	StaticMesh->RenderData->ReleaseResources();
+	StaticMesh->RenderData->InitResources(ERHIFeatureLevel::Num, StaticMesh);*/
+
+
+	StaticMesh->RenderData = MakeUnique<FStaticMeshRenderData>();
+	StaticMesh->RenderData->AllocateLODResources(MeshDescriptions.Num());
+	UE_LOG(LogTemp, Error, TEXT("RenderData Initialized: %d"), StaticMesh->RenderData->IsInitialized());
+	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
+	{
+		Resources.bHasColorVertexData = true;
+		UE_LOG(LogTemp, Error, TEXT("[0] StaticMeshVertexBuffer: %d"), Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords());
+
+		FStaticMeshConstAttributes MeshDescriptionAttributes(MeshDescription->GetMeshDescription());
+
+		// Fill vertex buffers
+
+		int32 NumVertexInstances = MeshDescription->GetMeshDescription().VertexInstances().GetArraySize();
+		int32 NumTriangles = MeshDescription->GetMeshDescription().Triangles().Num();
+
+		TArray<FStaticMeshBuildVertex> StaticMeshBuildVertices;
+		StaticMeshBuildVertices.SetNum(NumVertexInstances);
+
+		TVertexAttributesConstRef<FVector> VertexPositions = MeshDescriptionAttributes.GetVertexPositions();
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceNormals = MeshDescriptionAttributes.GetVertexInstanceNormals();
+		TVertexInstanceAttributesConstRef<FVector> VertexInstanceTangents = MeshDescriptionAttributes.GetVertexInstanceTangents();
+		TVertexInstanceAttributesConstRef<float> VertexInstanceBinormalSigns = MeshDescriptionAttributes.GetVertexInstanceBinormalSigns();
+		TVertexInstanceAttributesConstRef<FVector4> VertexInstanceColors = MeshDescriptionAttributes.GetVertexInstanceColors();
+		TVertexInstanceAttributesConstRef<FVector2D> VertexInstanceUVs = MeshDescriptionAttributes.GetVertexInstanceUVs();
+
+		for (FVertexInstanceID VertexInstanceID : MeshDescription->GetMeshDescription().VertexInstances().GetElementIDs())
+		{
+			FStaticMeshBuildVertex& StaticMeshVertex = StaticMeshBuildVertices[VertexInstanceID.GetValue()];
+
+			StaticMeshVertex.Position = VertexPositions[MeshDescription->GetMeshDescription().GetVertexInstanceVertex(VertexInstanceID)];
+			StaticMeshVertex.TangentX = VertexInstanceTangents[VertexInstanceID];
+			StaticMeshVertex.TangentY = FVector::CrossProduct(VertexInstanceNormals[VertexInstanceID], VertexInstanceTangents[VertexInstanceID]).GetSafeNormal() * VertexInstanceBinormalSigns[VertexInstanceID];
+			StaticMeshVertex.TangentZ = VertexInstanceNormals[VertexInstanceID];
+
+			for (int32 UVIndex = 0; UVIndex < VertexInstanceUVs.GetNumIndices(); ++UVIndex)
+			{
+				StaticMeshVertex.UVs[UVIndex] = VertexInstanceUVs.Get(VertexInstanceID, UVIndex);
+			}
+		}
+
+		bool bHasVertexColors = false;
+		if (VertexInstanceColors.IsValid())
+		{
+			for (FVertexInstanceID VertexInstanceID : MeshDescription->GetMeshDescription().VertexInstances().GetElementIDs())
+			{
+				FStaticMeshBuildVertex& StaticMeshVertex = StaticMeshBuildVertices[VertexInstanceID.GetValue()];
+
+				FLinearColor Color(VertexInstanceColors[VertexInstanceID]);
+				if (Color != FLinearColor::White)
+				{
+					bHasVertexColors = true;
+				}
+
+				StaticMeshVertex.Color = Color.ToFColor(true);
+			}
+		}
+
+		Resources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices);
+		Resources.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, VertexInstanceUVs.GetNumIndices());
+
+		FColorVertexBuffer& ColorVertexBuffer = Resources.VertexBuffers.ColorVertexBuffer;
+
+		ColorVertexBuffer.Init(StaticMeshBuildVertices);
+
+		// Fill index buffer and sections array
+
+		int32 NumPolygonGroups = MeshDescription->GetMeshDescription().PolygonGroups().Num();
+
+		TPolygonGroupAttributesConstRef<FName> MaterialSlotNames = MeshDescriptionAttributes.GetPolygonGroupMaterialSlotNames();
+
+		TArray<uint32> IndexBuffer;
+		IndexBuffer.SetNumZeroed(NumTriangles * 3);
+
+		FStaticMeshLODResources::FStaticMeshSectionArray& Sections = Resources.Sections;
+
+		int32 SectionIndex = 0;
+		int32 IndexBufferIndex = 0;
+		EIndexBufferStride::Type IndexBufferStride = EIndexBufferStride::Force16Bit;
+
+		for (FPolygonGroupID PolygonGroupID : MeshDescription->GetMeshDescription().PolygonGroups().GetElementIDs())
+		{
+			// Skip empty polygon groups - we do not want to build empty sections
+			if (MeshDescription->GetMeshDescription().GetNumPolygonGroupPolygons(PolygonGroupID) == 0)
+			{
+				continue;
+			}
+
+			FStaticMeshSection& Section = Sections.AddDefaulted_GetRef();
+			Section.FirstIndex = IndexBufferIndex;
+
+			int32 TriangleCount = 0;
+			uint32 MinVertexIndex = TNumericLimits<uint32>::Max();
+			uint32 MaxVertexIndex = TNumericLimits<uint32>::Min();
+
+			for (FPolygonID PolygonID : MeshDescription->GetMeshDescription().GetPolygonGroupPolygons(PolygonGroupID))
+			{
+				for (FTriangleID TriangleID : MeshDescription->GetMeshDescription().GetPolygonTriangleIDs(PolygonID))
+				{
+					for (FVertexInstanceID TriangleVertexInstanceIDs : MeshDescription->GetMeshDescription().GetTriangleVertexInstances(TriangleID))
+					{
+						uint32 VertexIndex = static_cast<uint32>(TriangleVertexInstanceIDs.GetValue());
+						MinVertexIndex = FMath::Min(MinVertexIndex, VertexIndex);
+						MaxVertexIndex = FMath::Max(MaxVertexIndex, VertexIndex);
+						IndexBuffer[IndexBufferIndex] = VertexIndex;
+						IndexBufferIndex++;
+					}
+
+					TriangleCount++;
+				}
+			}
+
+			Section.NumTriangles = TriangleCount;
+			Section.MinVertexIndex = MinVertexIndex;
+			Section.MaxVertexIndex = MaxVertexIndex;
+
+			const int32 MaterialIndex = StaticMaterials.IndexOfByPredicate(
+				[&MaterialSlotName = MaterialSlotNames[PolygonGroupID]](const FStaticMaterial& StaticMaterial) { return StaticMaterial.MaterialSlotName == MaterialSlotName; }
+			);
+
+			Section.MaterialIndex = MaterialIndex;
+			Section.bEnableCollision = true;
+			Section.bCastShadow = true;
+
+			if (MaxVertexIndex > TNumericLimits<uint16>::Max())
+			{
+				IndexBufferStride = EIndexBufferStride::Force32Bit;
+			}
+
+			SectionIndex++;
+		}
+		check(IndexBufferIndex == NumTriangles * 3);
+
+		Resources.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
+
+		// Fill depth only index buffer
+
+		TArray<uint32> DepthOnlyIndexBuffer(IndexBuffer);
+		for (uint32& Index : DepthOnlyIndexBuffer)
+		{
+			// Compress all vertex instances into the same instance for each vertex
+			Index = MeshDescription->GetMeshDescription().GetVertexVertexInstances(MeshDescription->GetMeshDescription().GetVertexInstanceVertex(FVertexInstanceID(Index)))[0].GetValue();
+		}
+
+		Resources.bHasDepthOnlyIndices = true;
+		Resources.DepthOnlyIndexBuffer.SetIndices(DepthOnlyIndexBuffer, IndexBufferStride);
+		Resources.DepthOnlyNumTriangles = NumTriangles;
+
+		// Fill reversed index buffer
+		TArray<uint32> ReversedIndexBuffer(IndexBuffer);
+		for (int32 ReversedIndexBufferIndex = 0; ReversedIndexBufferIndex < IndexBuffer.Num(); ReversedIndexBufferIndex += 3)
+		{
+			Swap(ReversedIndexBuffer[ReversedIndexBufferIndex + 0], ReversedIndexBuffer[ReversedIndexBufferIndex + 2]);
+		}
+
+		Resources.AdditionalIndexBuffers = new FAdditionalStaticMeshIndexBuffers();
+		Resources.bHasReversedIndices = true;
+		Resources.AdditionalIndexBuffers->ReversedIndexBuffer.SetIndices(ReversedIndexBuffer, IndexBufferStride);
+
+		// Fill reversed depth index buffer
+		TArray<uint32> ReversedDepthOnlyIndexBuffer(DepthOnlyIndexBuffer);
+		for (int32 ReversedIndexBufferIndex = 0; ReversedIndexBufferIndex < IndexBuffer.Num(); ReversedIndexBufferIndex += 3)
+		{
+			Swap(ReversedDepthOnlyIndexBuffer[ReversedIndexBufferIndex + 0], ReversedDepthOnlyIndexBuffer[ReversedIndexBufferIndex + 2]);
+		}
+
+		Resources.bHasReversedDepthOnlyIndices = true;
+		Resources.AdditionalIndexBuffers->ReversedDepthOnlyIndexBuffer.SetIndices(ReversedIndexBuffer, IndexBufferStride);
+
+		Resources.bHasAdjacencyInfo = false;
+	}
+	StaticMesh->InitResources();
+	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
+	{
+		//Resources.bHasColorVertexData = true;
+		UE_LOG(LogTemp, Error, TEXT("[1] StaticMeshVertexBuffer: %d"), Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords());
+	}
 
 	if (!StaticMesh->BodySetup)
 	{
@@ -159,11 +389,11 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	StaticMesh->BodySetup->InvalidatePhysicsData();
 
-#if !WITH_EDITOR
+#if 0 && !WITH_EDITOR
 	if (StaticMesh->bAllowCPUAccess)
 	{
 		FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[0];
-		ENQUEUE_RENDER_COMMAND(InitCommand)(
+		ENQUEUE_RENDER_COMMAND(FixIndexBufferOnCPUCommand)(
 			[&LOD, &CPUVertexInstancesIDs](FRHICommandListImmediate& RHICmdList)
 		{
 			LOD.IndexBuffer.ReleaseResource();
