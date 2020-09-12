@@ -159,6 +159,31 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	}
 
+	if (StaticMeshConfig.PivotPosition != EglTFRuntimePivotPosition::Asset)
+	{
+		FBoxSphereBounds MeshBounds = MeshDescription->GetMeshDescription().GetBounds();
+		FVector PivotDelta = FVector::ZeroVector;
+		TVertexAttributesRef<FVector> VertexPositions = MeshDescription->GetVertexPositions();
+
+		if (StaticMeshConfig.PivotPosition == EglTFRuntimePivotPosition::Center)
+		{
+			PivotDelta = MeshBounds.GetSphere().Center;
+		}
+		else if (StaticMeshConfig.PivotPosition == EglTFRuntimePivotPosition::Top)
+		{
+			PivotDelta = MeshBounds.GetBox().GetCenter() + FVector(0, 0, MeshBounds.GetBox().GetExtent().Z);
+		}
+		else if (StaticMeshConfig.PivotPosition == EglTFRuntimePivotPosition::Bottom)
+		{
+			PivotDelta = MeshBounds.GetBox().GetCenter() - FVector(0, 0, MeshBounds.GetBox().GetExtent().Z);
+		}
+
+		for (const FVertexID VertexID : MeshDescription->Vertices().GetElementIDs())
+		{
+			VertexPositions[VertexID] -= PivotDelta;
+		}
+	}
+
 	StaticMesh->StaticMaterials = StaticMaterials;
 
 	StaticMesh->RenderData = MakeUnique<FStaticMeshRenderData>();
@@ -287,7 +312,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 			SectionIndex++;
 		}
-		
+
 		Resources.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
 
 		Resources.bHasDepthOnlyIndices = false;
@@ -301,7 +326,6 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	StaticMesh->InitResources();
 
-
 	if (!StaticMesh->BodySetup)
 	{
 		StaticMesh->CreateBodySetup();
@@ -312,7 +336,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	StaticMesh->BodySetup->InvalidatePhysicsData();
 
-// TODO this is no more required, but force cpuaccess if required
+	// TODO this is no more required, but force cpuaccess if required
 #if 0 && !WITH_EDITOR
 	if (StaticMesh->bAllowCPUAccess)
 	{

@@ -9,36 +9,39 @@
 
 DEFINE_LOG_CATEGORY(LogGLTFRuntime);
 
-TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromFilename(const FString Filename)
+TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromFilename(const FString& Filename)
 {
 	TArray64<uint8> Content;
 	if (!FFileHelper::LoadFileToArray(Content, *Filename))
 	{
 		return nullptr;
 	}
-	return FromData(Content);
+	return FromData(Content.GetData(), Content.Num());
 }
 
-TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromData(const TArray64<uint8> Data)
+TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromData(const uint8* DataPtr, int64 DataNum)
 {
 	// detect binary format
-	if (Data.Num() > 20)
+	if (DataNum > 20)
 	{
-		if (Data[0] == 0x67 &&
-			Data[1] == 0x6C &&
-			Data[2] == 0x54 &&
-			Data[3] == 0x46)
+		if (DataPtr[0] == 0x67 &&
+			DataPtr[1] == 0x6C &&
+			DataPtr[2] == 0x54 &&
+			DataPtr[3] == 0x46)
 		{
-			return FromBinary(Data);
+			return FromBinary(DataPtr, DataNum);
 		}
 	}
-
-	FString JsonData;
-	FFileHelper::BufferToString(JsonData, Data.GetData(), Data.Num());
-	return FromString(JsonData);
+	if (DataNum <= INT32_MAX)
+	{
+		FString JsonData;
+		FFileHelper::BufferToString(JsonData, DataPtr, (int32)DataNum);
+		return FromString(JsonData);
+	}
+	return nullptr;
 }
 
-TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromString(const FString JsonData)
+TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromString(const FString& JsonData)
 {
 	TSharedPtr<FJsonValue> RootValue;
 
@@ -55,7 +58,7 @@ TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromString(const FString Json
 	return MakeShared<FglTFRuntimeParser>(JsonObject.ToSharedRef());
 }
 
-TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromBinary(const TArray64<uint8> Data)
+TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromBinary(const uint8* DataPtr, int64 DataNum)
 {
 	FString JsonData;
 	TArray64<uint8> BinaryBuffer;
@@ -64,11 +67,9 @@ TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromBinary(const TArray64<uin
 	bool bBinaryFound = false;
 	int64 BlobIndex = 12;
 
-	const uint8* DataPtr = Data.GetData();
-
-	while (BlobIndex < Data.Num())
+	while (BlobIndex < DataNum)
 	{
-		if (BlobIndex + 8 > Data.Num())
+		if (BlobIndex + 8 > DataNum)
 		{
 			return nullptr;
 		}
@@ -78,7 +79,7 @@ TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromBinary(const TArray64<uin
 
 		BlobIndex += 8;
 
-		if ((BlobIndex + *ChunkLength) > Data.Num())
+		if ((BlobIndex + *ChunkLength) > DataNum)
 		{
 			return nullptr;
 		}
@@ -113,7 +114,7 @@ TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromBinary(const TArray64<uin
 	return Parser;
 }
 
-FglTFRuntimeParser::FglTFRuntimeParser(TSharedRef<FJsonObject> JsonObject, FMatrix InSceneBasis, float InSceneScale) : Root(JsonObject), SceneBasis(InSceneBasis), SceneScale(InSceneScale)
+FglTFRuntimeParser::FglTFRuntimeParser(TSharedRef<FJsonObject> JsonObject, const FMatrix& InSceneBasis, float InSceneScale) : Root(JsonObject), SceneBasis(InSceneBasis), SceneScale(InSceneScale)
 {
 	bAllNodesCached = false;
 
@@ -214,7 +215,7 @@ bool FglTFRuntimeParser::LoadScenes(TArray<FglTFRuntimeScene>& Scenes)
 	return true;
 }
 
-bool FglTFRuntimeParser::CheckJsonIndex(TSharedRef<FJsonObject> JsonObject, const FString FieldName, const int32 Index, TArray<TSharedRef<FJsonValue>>& JsonItems)
+bool FglTFRuntimeParser::CheckJsonIndex(TSharedRef<FJsonObject> JsonObject, const FString& FieldName, const int32 Index, TArray<TSharedRef<FJsonValue>>& JsonItems)
 {
 	if (Index < 0)
 		return false;
@@ -238,7 +239,7 @@ bool FglTFRuntimeParser::CheckJsonIndex(TSharedRef<FJsonObject> JsonObject, cons
 	return true;
 }
 
-TSharedPtr<FJsonObject> FglTFRuntimeParser::GetJsonObjectFromIndex(TSharedRef<FJsonObject> JsonObject, const FString FieldName, const int32 Index)
+TSharedPtr<FJsonObject> FglTFRuntimeParser::GetJsonObjectFromIndex(TSharedRef<FJsonObject> JsonObject, const FString& FieldName, const int32 Index)
 {
 	TArray<TSharedRef<FJsonValue>> JsonArray;
 	if (!CheckJsonIndex(JsonObject, FieldName, Index, JsonArray))
@@ -249,7 +250,7 @@ TSharedPtr<FJsonObject> FglTFRuntimeParser::GetJsonObjectFromIndex(TSharedRef<FJ
 	return JsonArray[Index]->AsObject();
 }
 
-FString FglTFRuntimeParser::GetJsonObjectString(TSharedRef<FJsonObject> JsonObject, const FString FieldName, const FString DefaultValue)
+FString FglTFRuntimeParser::GetJsonObjectString(TSharedRef<FJsonObject> JsonObject, const FString& FieldName, const FString& DefaultValue)
 {
 	FString Value;
 	if (!JsonObject->TryGetStringField(FieldName, Value))
@@ -259,7 +260,7 @@ FString FglTFRuntimeParser::GetJsonObjectString(TSharedRef<FJsonObject> JsonObje
 	return Value;
 }
 
-int32 FglTFRuntimeParser::GetJsonObjectIndex(TSharedRef<FJsonObject> JsonObject, const FString FieldName, const int32 DefaultValue)
+int32 FglTFRuntimeParser::GetJsonObjectIndex(TSharedRef<FJsonObject> JsonObject, const FString& FieldName, const int32 DefaultValue)
 {
 	int64 Value;
 	if (!JsonObject->TryGetNumberField(FieldName, Value))
@@ -348,7 +349,7 @@ bool FglTFRuntimeParser::LoadNodeByName(FString Name, FglTFRuntimeNode& Node)
 	return false;
 }
 
-void FglTFRuntimeParser::AddError(const FString ErrorContext, const FString ErrorMessage)
+void FglTFRuntimeParser::AddError(const FString& ErrorContext, const FString& ErrorMessage)
 {
 	FString FullMessage = ErrorContext + ": " + ErrorMessage;
 	Errors.Add(FullMessage);
@@ -391,6 +392,8 @@ bool FglTFRuntimeParser::LoadNode_Internal(int32 Index, TSharedRef<FJsonObject> 
 	Node.MeshIndex = GetJsonObjectIndex(JsonNodeObject, "mesh", INDEX_NONE);
 
 	Node.SkinIndex = GetJsonObjectIndex(JsonNodeObject, "skin", INDEX_NONE);
+
+	Node.CameraIndex = GetJsonObjectIndex(JsonNodeObject, "camera", INDEX_NONE);
 
 	FMatrix Matrix = FMatrix::Identity;
 
@@ -569,6 +572,35 @@ bool FglTFRuntimeParser::LoadAnimation_Internal(TSharedRef<FJsonObject> JsonAnim
 	}
 
 	return true;
+}
+
+TArray<FString> FglTFRuntimeParser::GetCamerasNames()
+{
+	TArray<FString> CamerasNames;
+	const TArray<TSharedPtr<FJsonValue>>* JsonCameras;
+	if (!Root->TryGetArrayField("cameras", JsonCameras))
+	{
+		return CamerasNames;
+	}
+
+	for (TSharedPtr<FJsonValue> JsonCamera : *JsonCameras)
+	{
+		TSharedPtr<FJsonObject> JsonCameraObject = JsonCamera->AsObject();
+		if (!JsonCameraObject)
+		{
+			continue;
+		}
+
+		FString CameraName;
+		if (!JsonCameraObject->TryGetStringField("name", CameraName))
+		{
+			continue;
+		}
+
+		CamerasNames.Add(CameraName);
+	}
+
+	return CamerasNames;
 }
 
 UglTFRuntimeAnimationCurve* FglTFRuntimeParser::LoadNodeAnimationCurve(const int32 NodeIndex)
@@ -756,7 +788,7 @@ int32 FglTFRuntimeParser::FindTopRoot(int32 Index)
 	return Node.Index;
 }
 
-int32 FglTFRuntimeParser::FindCommonRoot(TArray<int32> Indices)
+int32 FglTFRuntimeParser::FindCommonRoot(const TArray<int32>& Indices)
 {
 	int32 CurrentRootIndex = Indices[0];
 	bool bTryNextParent = true;
@@ -782,11 +814,101 @@ int32 FglTFRuntimeParser::FindCommonRoot(TArray<int32> Indices)
 	return CurrentRootIndex;
 }
 
+bool FglTFRuntimeParser::LoadCameraIntoCameraComponent(const int32 CameraIndex, UCameraComponent* CameraComponent)
+{
+	if (!CameraComponent)
+	{
+		AddError("LoadCameraIntoCameraComponent()", "No valid CameraComponent specified.");
+		return false;
+	}
+
+	TSharedPtr<FJsonObject> CameraObject = GetJsonObjectFromRootIndex("cameras", CameraIndex);
+	if (!CameraObject)
+	{
+		AddError("LoadCameraIntoCameraComponent()", "Invalid Camera Index.");
+		return false;
+	}
+
+	FString CameraType = GetJsonObjectString(CameraObject.ToSharedRef(), "type", "");
+	if (CameraType.IsEmpty())
+	{
+		AddError("LoadCameraIntoCameraComponent()", "No Camera type specified.");
+		return false;
+	}
+
+	if (CameraType.Equals("perspective", ESearchCase::IgnoreCase))
+	{
+		CameraComponent->ProjectionMode = ECameraProjectionMode::Perspective;
+		const TSharedPtr<FJsonObject>* PerspectiveObject;
+		if (CameraObject->TryGetObjectField("perspective", PerspectiveObject))
+		{
+			double AspectRatio;
+			if ((*PerspectiveObject)->TryGetNumberField("aspectRatio", AspectRatio))
+			{
+				CameraComponent->AspectRatio = AspectRatio;
+			}
+
+			double YFov;
+			if ((*PerspectiveObject)->TryGetNumberField("yfov", YFov))
+			{
+				CameraComponent->FieldOfView = FMath::RadiansToDegrees(YFov) * CameraComponent->AspectRatio;
+			}
+		}
+
+		return true;
+	}
+
+	if (CameraType.Equals("orthographic", ESearchCase::IgnoreCase))
+	{
+		CameraComponent->ProjectionMode = ECameraProjectionMode::Orthographic;
+		const TSharedPtr<FJsonObject>* OrthographicObject;
+		if (CameraObject->TryGetObjectField("orthographic", OrthographicObject))
+		{
+			double XMag;
+			if (!(*OrthographicObject)->TryGetNumberField("xmag", XMag))
+			{
+				AddError("LoadCameraIntoCameraComponent()", "No Orthographic Width specified.");
+				return false;
+			}
+			double YMag;
+			if (!(*OrthographicObject)->TryGetNumberField("ymag", YMag))
+			{
+				AddError("LoadCameraIntoCameraComponent()", "No Orthographic Height specified.");
+				return false;
+			}
+			double ZFar;
+			if (!(*OrthographicObject)->TryGetNumberField("zfar", ZFar))
+			{
+				AddError("LoadCameraIntoCameraComponent()", "No Orthographic Far specified.");
+				return false;
+			}
+			double ZNear;
+			if (!(*OrthographicObject)->TryGetNumberField("znear", ZNear))
+			{
+				AddError("LoadCameraIntoCameraComponent()", "No Orthographic Near specified.");
+				return false;
+			}
+
+			CameraComponent->AspectRatio = XMag / YMag;
+			CameraComponent->OrthoWidth = XMag * SceneScale;
+
+			CameraComponent->OrthoFarClipPlane = ZFar * SceneScale;
+			CameraComponent->OrthoNearClipPlane = ZNear * SceneScale;
+		}
+		return true;
+	}
+
+	AddError("LoadCameraIntoCameraComponent()", "Unsupported Camera Type.");
+	return false;
+}
+
 USkeleton* FglTFRuntimeParser::LoadSkeleton(const int32 SkinIndex, const FglTFRuntimeSkeletonConfig& SkeletonConfig)
 {
 	TSharedPtr<FJsonObject> JsonSkinObject = GetJsonObjectFromRootIndex("skins", SkinIndex);
 	if (!JsonSkinObject)
+	{
 		return nullptr;
+	}
 
 	TMap<int32, FName> BoneMap;
 
@@ -1303,7 +1425,7 @@ bool FglTFRuntimeParser::GetBuffer(int32 Index, TArray64<uint8>& Bytes)
 	return false;
 }
 
-bool FglTFRuntimeParser::ParseBase64Uri(const FString Uri, TArray64<uint8>& Bytes)
+bool FglTFRuntimeParser::ParseBase64Uri(const FString& Uri, TArray64<uint8>& Bytes)
 {
 	// check it is a valid base64 data uri
 	if (!Uri.StartsWith("data:"))
@@ -1600,7 +1722,7 @@ int64 FglTFRuntimeParser::GetComponentTypeSize(const int64 ComponentType) const
 	return 0;
 }
 
-int64 FglTFRuntimeParser::GetTypeSize(const FString Type) const
+int64 FglTFRuntimeParser::GetTypeSize(const FString& Type) const
 {
 	if (Type == "SCALAR")
 		return 1;
@@ -1630,7 +1752,7 @@ void FglTFRuntimeParser::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObjects(MaterialsMap);
 }
 
-float FglTFRuntimeParser::FindBestFrames(TArray<float> FramesTimes, float WantedTime, int32& FirstIndex, int32& SecondIndex)
+float FglTFRuntimeParser::FindBestFrames(const TArray<float>& FramesTimes, float WantedTime, int32& FirstIndex, int32& SecondIndex)
 {
 	SecondIndex = INDEX_NONE;
 	// first search for second (higher value)
