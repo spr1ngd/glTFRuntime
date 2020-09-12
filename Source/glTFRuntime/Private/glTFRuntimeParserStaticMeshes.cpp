@@ -164,11 +164,9 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 	StaticMesh->RenderData = MakeUnique<FStaticMeshRenderData>();
 	StaticMesh->RenderData->AllocateLODResources(1);
 
-	UE_LOG(LogTemp, Error, TEXT("RenderData Initialized: %d"), StaticMesh->RenderData->IsInitialized());
 	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
 	{
 		Resources.bHasColorVertexData = true;
-		UE_LOG(LogTemp, Error, TEXT("[0] StaticMeshVertexBuffer: %d"), Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords());
 
 		FStaticMeshConstAttributes MeshDescriptionAttributes(MeshDescription->GetMeshDescription());
 
@@ -298,11 +296,11 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 		Resources.bHasAdjacencyInfo = false;
 	}
 
-	StaticMesh->RenderData->Bounds = FBoxSphereBounds(FVector::ZeroVector, FVector(100, 100, 100), 100);
+	StaticMesh->RenderData->Bounds = MeshDescription->GetMeshDescription().GetBounds();
+	StaticMesh->ExtendedBounds = StaticMesh->RenderData->Bounds;
 
 	StaticMesh->InitResources();
 
-	StaticMesh->ExtendedBounds = StaticMesh->RenderData->Bounds;
 
 	if (!StaticMesh->BodySetup)
 	{
@@ -314,6 +312,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	StaticMesh->BodySetup->InvalidatePhysicsData();
 
+// TODO this is no more required, but force cpuaccess if required
 #if 0 && !WITH_EDITOR
 	if (StaticMesh->bAllowCPUAccess)
 	{
