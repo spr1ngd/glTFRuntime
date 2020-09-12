@@ -161,49 +161,9 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 	StaticMesh->StaticMaterials = StaticMaterials;
 
-	TArray<UStaticMeshDescription*> MeshDescriptions = { MeshDescription };
-	//StaticMesh->BuildFromStaticMeshDescriptions(MeshDescriptions, false);
-
-
-	/*//StaticMesh->LightMapCoordinateIndex = NumUVs;
-
-	ENQUEUE_RENDER_COMMAND(InitColorVertexBufferCommand)(
-		[StaticMesh, bHasVertexColors](FRHICommandListImmediate& RHICmdList)
-	{
-		for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
-		{
-			Resources.bHasColorVertexData = bHasVertexColors;
-			if (!Resources.VertexBuffers.ColorVertexBuffer.IsInitialized())
-			{
-				Resources.VertexBuffers.ColorVertexBuffer.InitResource();
-				//Resources.VertexBuffers.ColorVertexBuffer.Init(Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices(), true);
-			}
-
-			//if (Resources.bHasColorVertexData)
-			{
-
-			}
-			UE_LOG(LogTemp, Error, TEXT("ColorVertexBuffer: %d %d %d"), Resources.VertexBuffers.ColorVertexBuffer.IsInitialized(), StaticMesh->RenderData->LODVertexFactories.Num(), Resources.bHasColorVertexData);
-		}
-	});
-
-	FlushRenderingCommands();
-
-	StaticMesh->RenderData->LODVertexFactories[0].ReleaseResources();
-	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
-	{
-		StaticMesh->RenderData->LODVertexFactories[0].InitVertexFactory(Resources, StaticMesh->RenderData->LODVertexFactories[0].VertexFactory, 0, StaticMesh, false);
-	}*/
-
-	/*StaticMesh->RenderData->LODVertexFactories[0].InitVertexFactory(Resources, StaticMesh->RenderData->LODVertexFactories[0].VertexFactory, 0, StaticMesh, false);
-
-
-	StaticMesh->RenderData->ReleaseResources();
-	StaticMesh->RenderData->InitResources(ERHIFeatureLevel::Num, StaticMesh);*/
-
-
 	StaticMesh->RenderData = MakeUnique<FStaticMeshRenderData>();
-	StaticMesh->RenderData->AllocateLODResources(MeshDescriptions.Num());
+	StaticMesh->RenderData->AllocateLODResources(1);
+
 	UE_LOG(LogTemp, Error, TEXT("RenderData Initialized: %d"), StaticMesh->RenderData->IsInitialized());
 	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
 	{
@@ -261,10 +221,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 		Resources.VertexBuffers.PositionVertexBuffer.Init(StaticMeshBuildVertices);
 		Resources.VertexBuffers.StaticMeshVertexBuffer.Init(StaticMeshBuildVertices, VertexInstanceUVs.GetNumIndices());
-
-		FColorVertexBuffer& ColorVertexBuffer = Resources.VertexBuffers.ColorVertexBuffer;
-
-		ColorVertexBuffer.Init(StaticMeshBuildVertices);
+		Resources.VertexBuffers.ColorVertexBuffer.Init(StaticMeshBuildVertices);
 
 		// Fill index buffer and sections array
 
@@ -332,52 +289,20 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FJsonObject>
 
 			SectionIndex++;
 		}
-		check(IndexBufferIndex == NumTriangles * 3);
-
+		
 		Resources.IndexBuffer.SetIndices(IndexBuffer, IndexBufferStride);
 
-		// Fill depth only index buffer
-
-		TArray<uint32> DepthOnlyIndexBuffer(IndexBuffer);
-		for (uint32& Index : DepthOnlyIndexBuffer)
-		{
-			// Compress all vertex instances into the same instance for each vertex
-			Index = MeshDescription->GetMeshDescription().GetVertexVertexInstances(MeshDescription->GetMeshDescription().GetVertexInstanceVertex(FVertexInstanceID(Index)))[0].GetValue();
-		}
-
-		Resources.bHasDepthOnlyIndices = true;
-		Resources.DepthOnlyIndexBuffer.SetIndices(DepthOnlyIndexBuffer, IndexBufferStride);
-		Resources.DepthOnlyNumTriangles = NumTriangles;
-
-		// Fill reversed index buffer
-		TArray<uint32> ReversedIndexBuffer(IndexBuffer);
-		for (int32 ReversedIndexBufferIndex = 0; ReversedIndexBufferIndex < IndexBuffer.Num(); ReversedIndexBufferIndex += 3)
-		{
-			Swap(ReversedIndexBuffer[ReversedIndexBufferIndex + 0], ReversedIndexBuffer[ReversedIndexBufferIndex + 2]);
-		}
-
-		Resources.AdditionalIndexBuffers = new FAdditionalStaticMeshIndexBuffers();
-		Resources.bHasReversedIndices = true;
-		Resources.AdditionalIndexBuffers->ReversedIndexBuffer.SetIndices(ReversedIndexBuffer, IndexBufferStride);
-
-		// Fill reversed depth index buffer
-		TArray<uint32> ReversedDepthOnlyIndexBuffer(DepthOnlyIndexBuffer);
-		for (int32 ReversedIndexBufferIndex = 0; ReversedIndexBufferIndex < IndexBuffer.Num(); ReversedIndexBufferIndex += 3)
-		{
-			Swap(ReversedDepthOnlyIndexBuffer[ReversedIndexBufferIndex + 0], ReversedDepthOnlyIndexBuffer[ReversedIndexBufferIndex + 2]);
-		}
-
-		Resources.bHasReversedDepthOnlyIndices = true;
-		Resources.AdditionalIndexBuffers->ReversedDepthOnlyIndexBuffer.SetIndices(ReversedIndexBuffer, IndexBufferStride);
-
+		Resources.bHasDepthOnlyIndices = false;
+		Resources.bHasReversedIndices = false;
+		Resources.bHasReversedDepthOnlyIndices = false;
 		Resources.bHasAdjacencyInfo = false;
 	}
+
+	StaticMesh->RenderData->Bounds = FBoxSphereBounds(FVector::ZeroVector, FVector(100, 100, 100), 100);
+
 	StaticMesh->InitResources();
-	for (FStaticMeshLODResources& Resources : StaticMesh->RenderData->LODResources)
-	{
-		//Resources.bHasColorVertexData = true;
-		UE_LOG(LogTemp, Error, TEXT("[1] StaticMeshVertexBuffer: %d"), Resources.VertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords());
-	}
+
+	StaticMesh->ExtendedBounds = StaticMesh->RenderData->Bounds;
 
 	if (!StaticMesh->BodySetup)
 	{
