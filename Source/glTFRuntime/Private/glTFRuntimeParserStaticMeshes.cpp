@@ -160,6 +160,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FglTFRuntime
 
 		int32 VertexInstanceBaseIndex = 0;
 
+		const FMatrix NormalTransform = StaticMeshConfig.LoadStaticMeshTransform.Inverse().GetTransposed();
 		for (FglTFRuntimePrimitive& Primitive : Primitives)
 		{
 			FName MaterialName = FName(FString::Printf(TEXT("LOD_%d_Section_%d_%s"), CurrentLODIndex, StaticMeshContext->StaticMaterials.Num(), *Primitive.MaterialName));
@@ -188,10 +189,15 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FglTFRuntime
 				FStaticMeshBuildVertex& StaticMeshVertex = StaticMeshBuildVertices[VertexInstanceBaseIndex + VertexInstanceSectionIndex];
 
 				StaticMeshVertex.Position = GetSafeValue(Primitive.Positions, VertexIndex, FVector::ZeroVector, bMissingIgnore);
+				// 2022.03.21 spr1ngd 
+				StaticMeshVertex.Position = StaticMeshConfig.LoadStaticMeshTransform.TransformPosition(StaticMeshVertex.Position);
 				BoundingBox += StaticMeshVertex.Position;
 				FVector4 TangentX = GetSafeValue(Primitive.Tangents, VertexIndex, FVector4(0, 0, 0, 1), bMissingTangents);
 				StaticMeshVertex.TangentX = TangentX;
 				StaticMeshVertex.TangentZ = GetSafeValue(Primitive.Normals, VertexIndex, FVector::ZeroVector, bMissingNormals);
+				if( !bMissingNormals ) {
+					StaticMeshVertex.TangentZ = NormalTransform.TransformVector(StaticMeshVertex.TangentZ ).GetSafeNormal();
+				}
 				StaticMeshVertex.TangentY = ComputeTangentYWithW(StaticMeshVertex.TangentZ, StaticMeshVertex.TangentX, TangentX.W * TangentsDirection);
 
 				for (int32 UVIndex = 0; UVIndex < NumUVs; UVIndex++)

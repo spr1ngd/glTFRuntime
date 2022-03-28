@@ -556,7 +556,8 @@ UTexture2D* FglTFRuntimeParser::LoadTexture(const int32 TextureIndex, TArray<Fgl
 		if (MaterialsConfig.bGeneratesMipMaps && FMath::IsPowerOfTwo(Width) && FMath::IsPowerOfTwo(Height))
 		{
 			NumOfMips = FMath::FloorLog2(FMath::Max(Width, Height)) + 1;
-
+			NumOfMips = FMath::Max(NumOfMips, 5);
+			
 			for (int32 MipY = 0; MipY < Height; MipY++)
 			{
 				for (int32 MipX = 0; MipX < Width; MipX++)
@@ -585,7 +586,7 @@ UTexture2D* FglTFRuntimeParser::LoadTexture(const int32 TextureIndex, TArray<Fgl
 			{
 				TArray64<FColor> ResizedMipData;
 				ResizedMipData.AddUninitialized(MipWidth * MipHeight);
-				FImageUtils::ImageResize(Width, Height, UncompressedColors, MipWidth, MipHeight, ResizedMipData, sRGB);
+				FImageUtils::ImageResize(Width, Height, UncompressedColors, MipWidth, MipHeight, ResizedMipData, sRGB, false);
 				for (FColor& Color : ResizedMipData)
 				{
 					MipMap.Pixels.Add(Color.B);

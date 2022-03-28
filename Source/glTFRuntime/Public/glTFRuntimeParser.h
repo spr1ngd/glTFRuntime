@@ -438,6 +438,9 @@ struct FglTFRuntimeStaticMeshConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime")
 	bool bReverseTangents;
 
+	// 2022.03.21 spr1ngd : used for LoadStaticMesh 
+	FMatrix LoadStaticMeshTransform;
+
 	FglTFRuntimeStaticMeshConfig()
 	{
 		CacheMode = EglTFRuntimeCacheMode::ReadWrite;
@@ -450,6 +453,7 @@ struct FglTFRuntimeStaticMeshConfig
 		NormalsGenerationStrategy = EglTFRuntimeNormalsGenerationStrategy::IfMissing;
 		TangentsGenerationStrategy = EglTFRuntimeTangentsGenerationStrategy::IfMissing;
 		bReverseTangents = false;
+		LoadStaticMeshTransform = FMatrix::Identity;
 	}
 };
 
