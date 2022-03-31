@@ -50,6 +50,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "glTFRuntime|Curves")
     FTransform GetTransformValue(float InTime) const;
 
+    UFUNCTION(BlueprintCallable, Category = "glTFRuntime|Curves")
+	FTransform GetTransformValueWithMatrix(float InTime, const FMatrix Matrix) const;
+
     void AddLocationValue(const float InTime, const FVector InLocation, const ERichCurveInterpMode InterpolationMode);
     void AddRotationValue(const float InTime, const FVector InEulerRotation, const ERichCurveInterpMode InterpolationMode);
     void AddScaleValue(const float InTime, const FVector InScale, const ERichCurveInterpMode InterpolationMode);

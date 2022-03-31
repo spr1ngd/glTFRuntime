@@ -23,6 +23,7 @@ protected:
 	virtual void ProcessNode(USceneComponent* NodeParentComponent, const FName SocketName, FglTFRuntimeNode& Node);
 
 	TMap<USceneComponent*, float>  CurveBasedAnimationsTimeTracker;
+	TMap<USceneComponent*, float>  CurveBasedAnimationsTimeTrackerFactor;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "glTFRuntime")
 	TSet<FString> DiscoveredCurveAnimationsNames;
@@ -54,6 +55,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime")
 	TMap<USceneComponent*, UglTFRuntimeAnimationCurve*> CurveBasedAnimations;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime_UINO")
+	bool bRightToLeftApply = false;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "glTFRuntime", meta = (DisplayName = "On StaticMeshComponent Created"))
 	void ReceiveOnStaticMeshComponentCreated(UStaticMeshComponent* StaticMeshComponent, const FglTFRuntimeNode& Node);

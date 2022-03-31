@@ -440,6 +440,8 @@ struct FglTFRuntimeStaticMeshConfig
 
 	// 2022.03.21 spr1ngd : used for LoadStaticMesh 
 	FMatrix LoadStaticMeshTransform;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime")
+	bool bDefaultPlayFrameAnimation = false;
 
 	FglTFRuntimeStaticMeshConfig()
 	{

@@ -30,6 +30,28 @@ FTransform UglTFRuntimeAnimationCurve::GetTransformValue(float InTime) const
 	return FTransform(BasisMatrix.Inverse() * Matrix * BasisMatrix);
 }
 
+FTransform UglTFRuntimeAnimationCurve::GetTransformValueWithMatrix(float InTime, const FMatrix Transform) const
+{
+	FVector Location;
+	Location.X = LocationCurves[0].Eval(InTime);
+	Location.Y = LocationCurves[1].Eval(InTime);
+	Location.Z = LocationCurves[2].Eval(InTime);
+
+	FVector EulerRotation;
+	EulerRotation.X = RotationCurves[0].Eval(InTime);
+	EulerRotation.Y = RotationCurves[1].Eval(InTime);
+	EulerRotation.Z = RotationCurves[2].Eval(InTime);
+
+	FVector Scale;
+	Scale.X = ScaleCurves[0].Eval(InTime);
+	Scale.Y = ScaleCurves[1].Eval(InTime);
+	Scale.Z = ScaleCurves[2].Eval(InTime);
+
+	FMatrix Matrix = FScaleMatrix(Scale) * FRotationMatrix(FRotator::MakeFromEuler(EulerRotation)) * FTranslationMatrix(Location);
+	Matrix *= Transform;
+	return FTransform(BasisMatrix.Inverse() * Matrix * BasisMatrix);
+}
+
 void UglTFRuntimeAnimationCurve::SetDefaultValues(const FVector Location, const FVector EulerRotation, const FVector Scale)
 {
 	LocationCurves[0].DefaultValue = Location.X;

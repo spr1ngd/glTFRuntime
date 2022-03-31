@@ -104,7 +104,8 @@ void AglTFRuntimeAssetActor::ProcessNode(USceneComponent* NodeParentComponent, c
 			UStaticMeshComponent* StaticMeshComponent = NewObject<UStaticMeshComponent>(this, GetSafeNodeName<UStaticMeshComponent>(Node));
 			StaticMeshComponent->SetupAttachment(NodeParentComponent);
 			StaticMeshComponent->RegisterComponent();
-			StaticMeshComponent->SetRelativeTransform(Node.Transform);
+			// StaticMeshComponent->SetRelativeTransform(Node.Transform);
+			StaticMeshConfig.LoadStaticMeshTransform = Node.Transform.ToMatrixWithScale();
 			AddInstanceComponent(StaticMeshComponent);
 			if (StaticMeshConfig.Outer == nullptr)
 			{
@@ -182,7 +183,7 @@ void AglTFRuntimeAssetActor::ProcessNode(USceneComponent* NodeParentComponent, c
 			TMap<FString, UglTFRuntimeAnimationCurve*> ComponentAnimationCurvesMap;
 			for (UglTFRuntimeAnimationCurve* ComponentAnimationCurve : ComponentAnimationCurves)
 			{
-				if (!CurveBasedAnimations.Contains(NewComponent))
+				if (!CurveBasedAnimations.Contains(NewComponent) && StaticMeshConfig.bDefaultPlayFrameAnimation)
 				{
 					CurveBasedAnimations.Add(NewComponent, ComponentAnimationCurve);
 					CurveBasedAnimationsTimeTracker.Add(NewComponent, 0);
@@ -243,6 +244,9 @@ void AglTFRuntimeAssetActor::SetCurveAnimationByName(const FString& CurveAnimati
 
 }
 
+const FMatrix Webgl2UnrealNoScale   = FTransform(FRotator(0,0,-90), FVector::ZeroVector, FVector(1,1,-1)).ToMatrixWithScale();
+const FMatrix Unreal2WebglNoScale   = Webgl2UnrealNoScale.Inverse();
+
 // Called every frame
 void AglTFRuntimeAssetActor::Tick(float DeltaTime)
 {
@@ -269,9 +273,18 @@ void AglTFRuntimeAssetActor::Tick(float DeltaTime)
 		if (CurrentTime >= MinTime)
 		{
 			FTransform FrameTransform = Pair.Value->GetTransformValue(CurveBasedAnimationsTimeTracker[Pair.Key]);
+			if( bRightToLeftApply ) {
+				FMatrix ret = FrameTransform.ToMatrixNoScale();
+				ret = Webgl2UnrealNoScale * ret;
+				FrameTransform.SetFromMatrix(ret);
+			}  
 			Pair.Key->SetRelativeTransform(FrameTransform);
 		}
-		CurveBasedAnimationsTimeTracker[Pair.Key] += DeltaTime;
+		float factor = 1.0f;
+		if(CurveBasedAnimationsTimeTrackerFactor.Contains(Pair.Key)) {
+			factor = CurveBasedAnimationsTimeTrackerFactor[Pair.Key];
+		}
+		CurveBasedAnimationsTimeTracker[Pair.Key] += DeltaTime * factor;
 	}
 }
 
