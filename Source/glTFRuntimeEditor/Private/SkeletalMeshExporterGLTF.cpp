@@ -15,12 +15,21 @@ USkeletalMeshExporterGLTF::USkeletalMeshExporterGLTF(const FObjectInitializer& O
 
 void FglTFExportContextSkeletalMesh::GenerateSkeletalMesh(USkeletalMesh* SkeletalMesh)
 {
+#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
+	if (!SkeletalMesh->GetSkeleton())
+	{
+		return;
+	}
+
+	GenerateSkeleton(SkeletalMesh->GetSkeleton());
+#else
 	if (!SkeletalMesh->Skeleton)
 	{
 		return;
 	}
 
 	GenerateSkeleton(SkeletalMesh->Skeleton);
+#endif
 
 	TSharedRef<FJsonObject> JsonScene = MakeShared<FJsonObject>();
 	TArray<TSharedPtr<FJsonValue>> JsonSceneNodes;
@@ -54,7 +63,11 @@ void FglTFExportContextSkeletalMesh::GenerateSkeletalMesh(USkeletalMesh* Skeleta
 
 		for (uint32 PositionIndex = 0; PositionIndex < NumPositions; PositionIndex++)
 		{
+#if ENGINE_MAJOR_VERSION > 4
+			FVector Position = FVector(RenderData->LODRenderData[LodIndex].StaticVertexBuffers.PositionVertexBuffer.VertexPosition(PositionIndex));
+#else
 			FVector Position = RenderData->LODRenderData[LodIndex].StaticVertexBuffers.PositionVertexBuffer.VertexPosition(PositionIndex);
+#endif
 			SectionPositions.Add(SceneBasisMatrix.TransformPosition(Position) * SceneScale);
 		}
 
