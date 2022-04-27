@@ -2051,9 +2051,9 @@ UAnimSequence* FglTFRuntimeParser::LoadSkeletalAnimation(USkeletalMesh * Skeleta
 		}
 
 #if ENGINE_MAJOR_VERSION > 4
-		FAnimationCurveData& RawCurveData = const_cast<FAnimationCurveData&>(AnimSequence->GetDataModel()->GetCurveData());
-		int32 NewCurveIndex = RawCurveData.FloatCurves.Add(FFloatCurve(SmartName, 0));
-		FFloatCurve* NewCurve = &RawCurveData.FloatCurves[NewCurveIndex];
+		FRawCurveTracks& RawCurveData = const_cast<FRawCurveTracks&>(AnimSequence->GetCurveData());
+		RawCurveData.AddCurveData(SmartName);
+		FFloatCurve* NewCurve = (FFloatCurve*)RawCurveData.GetCurveData(SmartName.UID, ERawCurveTrackTypes::RCT_Float);
 #else
 		AnimSequence->RawCurveData.AddCurveData(SmartName);
 		FFloatCurve* NewCurve = (FFloatCurve*)AnimSequence->RawCurveData.GetCurveData(SmartName.UID, ERawCurveTrackTypes::RCT_Float);

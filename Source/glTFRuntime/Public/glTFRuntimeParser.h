@@ -823,7 +823,7 @@ struct FglTFRuntimeSkeletalMeshContext : public FGCObject
 			}
 			else
 			{
-#if ENGINE_MINOR_VERSION >= 26
+#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION >= 26
 				Outer = CreatePackage(*InSkeletalMeshConfig.SaveToPackage);
 #else
 				Outer = CreatePackage(nullptr, *InSkeletalMeshConfig.SaveToPackage);
@@ -845,6 +845,11 @@ struct FglTFRuntimeSkeletalMeshContext : public FGCObject
 		SkinIndex = -1;
 	}
 
+	FString GetReferencerName() const override
+	{
+		return "FglTFRuntimeSkeletalMeshContext_Referencer";
+	}
+
 	void AddReferencedObjects(FReferenceCollector& Collector)
 	{
 		Collector.AddReferencedObject(SkeletalMesh);
@@ -864,6 +869,11 @@ struct FglTFRuntimeStaticMeshContext : public FGCObject
 	TArray<FStaticMaterial> StaticMaterials;
 
 	FglTFRuntimeStaticMeshContext(TSharedRef<FglTFRuntimeParser> InParser, const FglTFRuntimeStaticMeshConfig& InStaticMeshConfig);
+
+	FString GetReferencerName() const override
+	{
+		return "FglTFRuntimeStaticMeshContext_Referencer";
+	}
 
 	void AddReferencedObjects(FReferenceCollector& Collector)
 	{
@@ -1121,6 +1131,11 @@ public:
 
 	bool ParseBase64Uri(const FString& Uri, TArray64<uint8>& Bytes);
 
+	FString GetReferencerName() const override
+	{
+		return "FglTFRuntimeParser_Referencer";
+	}
+
 	void AddReferencedObjects(FReferenceCollector& Collector);
 
 	bool LoadPrimitives(TSharedRef<FJsonObject> JsonMeshObject, TArray<FglTFRuntimePrimitive>& Primitives, const FglTFRuntimeMaterialsConfig& MaterialsConfig);
@@ -1207,6 +1222,8 @@ protected:
 	int32 FindCommonRoot(const TArray<int32>& NodeIndices);
 	int32 FindTopRoot(int32 NodeIndex);
 	bool HasRoot(int32 NodeIndex, int32 RootIndex);
+
+	TSharedPtr<FJsonObject> GetJsonRoot() const { return Root; }
 
 	bool CheckJsonIndex(TSharedRef<FJsonObject> JsonObject, const FString& FieldName, const int32 Index, TArray<TSharedRef<FJsonValue>>& JsonItems);
 	bool CheckJsonRootIndex(const FString FieldName, const int32 Index, TArray<TSharedRef<FJsonValue>>& JsonItems) { return CheckJsonIndex(Root, FieldName, Index, JsonItems); }
