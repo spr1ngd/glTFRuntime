@@ -58,7 +58,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime_UINO")
 	bool bRightToLeftApply = false;
-
+	
 	UFUNCTION(BlueprintNativeEvent, Category = "glTFRuntime", meta = (DisplayName = "On StaticMeshComponent Created"))
 	void ReceiveOnStaticMeshComponentCreated(UStaticMeshComponent* StaticMeshComponent, const FglTFRuntimeNode& Node);
 
@@ -72,4 +72,8 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category="glTFRuntime")
 	USceneComponent* AssetRoot;
 
+#ifdef glTF_EXT
+	FMatrix Webgl2UnrealNoScale;
+    FMatrix Unreal2WebglNoScale;
+#endif
 };

@@ -8,7 +8,8 @@ public class glTFRuntime : ModuleRules
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseUnity = false;
-
+        
+        PublicDefinitions.Add("glTF_EXT");
         PublicIncludePaths.AddRange(
             new string[] {
 				// ... add public include paths required here ...

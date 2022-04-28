@@ -9,6 +9,10 @@
 // Sets default values
 AglTFRuntimeAssetActor::AglTFRuntimeAssetActor()
 {
+#ifdef glTF_EXT
+	this->Webgl2UnrealNoScale = FTransform(FRotator(0,0,-90), FVector::ZeroVector, FVector(1,1,-1)).ToMatrixWithScale();
+	this->Unreal2WebglNoScale = Webgl2UnrealNoScale.Inverse();
+#endif
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -104,8 +108,17 @@ void AglTFRuntimeAssetActor::ProcessNode(USceneComponent* NodeParentComponent, c
 			UStaticMeshComponent* StaticMeshComponent = NewObject<UStaticMeshComponent>(this, GetSafeNodeName<UStaticMeshComponent>(Node));
 			StaticMeshComponent->SetupAttachment(NodeParentComponent);
 			StaticMeshComponent->RegisterComponent();
-			// StaticMeshComponent->SetRelativeTransform(Node.Transform);
-			StaticMeshConfig.LoadStaticMeshTransform = Node.Transform.ToMatrixWithScale();
+#ifdef glTF_EXT
+			const FRotator Rotation = Node.Transform.Rotator();
+			FTransform TransformWithoutRotation = FTransform(
+				FRotator::ZeroRotator,
+				Node.Transform.GetLocation(),
+				Node.Transform.GetScale3D());
+			StaticMeshComponent->SetRelativeTransform(TransformWithoutRotation);
+			StaticMeshConfig.LoadStaticMeshTransform = FTransform(Rotation, FVector::ZeroVector, FVector::OneVector).ToMatrixWithScale();
+#else
+			StaticMeshComponent->SetRelativeTransform(Node.Transform);
+#endif
 			AddInstanceComponent(StaticMeshComponent);
 			if (StaticMeshConfig.Outer == nullptr)
 			{
@@ -241,11 +254,7 @@ void AglTFRuntimeAssetActor::SetCurveAnimationByName(const FString& CurveAnimati
 		}
 
 	}
-
 }
-
-const FMatrix Webgl2UnrealNoScale   = FTransform(FRotator(0,0,-90), FVector::ZeroVector, FVector(1,1,-1)).ToMatrixWithScale();
-const FMatrix Unreal2WebglNoScale   = Webgl2UnrealNoScale.Inverse();
 
 // Called every frame
 void AglTFRuntimeAssetActor::Tick(float DeltaTime)
@@ -273,11 +282,13 @@ void AglTFRuntimeAssetActor::Tick(float DeltaTime)
 		if (CurrentTime >= MinTime)
 		{
 			FTransform FrameTransform = Pair.Value->GetTransformValue(CurveBasedAnimationsTimeTracker[Pair.Key]);
+#ifdef glTF_EXT
 			if( bRightToLeftApply ) {
 				FMatrix ret = FrameTransform.ToMatrixNoScale();
 				ret = Webgl2UnrealNoScale * ret;
 				FrameTransform.SetFromMatrix(ret);
-			}  
+			}
+#endif
 			Pair.Key->SetRelativeTransform(FrameTransform);
 		}
 		float factor = 1.0f;

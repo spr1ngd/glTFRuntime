@@ -183,5 +183,4 @@ public:
 
 protected:
 	TSharedPtr<FglTFRuntimeParser> Parser;
-	
 };

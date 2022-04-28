@@ -1,6 +1,7 @@
 // Copyright 2020-2021, Roberto De Ioris.
 
 #include "glTFRuntimeParser.h"
+#include "EXT/glTFRuntimeParserEXT.h"
 #include "Misc/FileHelper.h"
 #include "Serialization/JsonSerializer.h"
 #include "Animation/Skeleton.h"
@@ -238,7 +239,11 @@ TSharedPtr<FglTFRuntimeParser> FglTFRuntimeParser::FromString(const FString& Jso
 	if (!JsonObject)
 		return nullptr;
 
+#ifdef glTF_EXT
+	TSharedPtr<FglTFRuntimeParser> Parser = MakeShared<FglTFRuntimeParserEXT>(JsonObject.ToSharedRef(), LoaderConfig.GetMatrix(), LoaderConfig.SceneScale);
+#else
 	TSharedPtr<FglTFRuntimeParser> Parser = MakeShared<FglTFRuntimeParser>(JsonObject.ToSharedRef(), LoaderConfig.GetMatrix(), LoaderConfig.SceneScale);
+#endif
 
 	if (Parser)
 	{
@@ -325,6 +330,8 @@ FglTFRuntimeParser::FglTFRuntimeParser(TSharedRef<FJsonObject> JsonObject, const
 {
 	bAllNodesCached = false;
 
+#ifndef glTF_EXT
+	
 	UMaterialInterface* OpaqueMaterial = LoadObject<UMaterialInterface>(nullptr, TEXT("/glTFRuntime/M_glTFRuntimeBase"));
 	if (OpaqueMaterial)
 	{
@@ -385,6 +392,8 @@ FglTFRuntimeParser::FglTFRuntimeParser(TSharedRef<FJsonObject> JsonObject, const
 	{
 		SpecularGlossinessMaterialsMap.Add(EglTFRuntimeMaterialType::TwoSidedTranslucent, SGTwoSidedTranslucentMaterial);
 	}
+
+#endif
 
 	JsonObject->TryGetStringArrayField("extensionsUsed", ExtensionsUsed);
 	JsonObject->TryGetStringArrayField("extensionsRequired", ExtensionsRequired);
