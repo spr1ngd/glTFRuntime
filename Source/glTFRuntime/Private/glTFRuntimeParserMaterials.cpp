@@ -78,10 +78,12 @@ UMaterialInterface* FglTFRuntimeParser::LoadMaterial_Internal(const int32 Index,
 		const TArray<TSharedPtr<FJsonValue>>* JsonValues;
 		if (JsonMaterialObject->TryGetArrayField(ParamName, JsonValues))
 		{
+#ifndef glTF_EXT
 			if (JsonValues->Num() != Fields)
 			{
 				return;
 			}
+#endif
 
 			double Values[4];
 			// default alpha
@@ -163,13 +165,7 @@ UMaterialInterface* FglTFRuntimeParser::LoadMaterial_Internal(const int32 Index,
 	}
 
 	GetMaterialTexture(JsonMaterialObject, "occlusionTexture", false, RuntimeMaterial.OcclusionTextureCache, RuntimeMaterial.OcclusionTextureMips, RuntimeMaterial.OcclusionTransform);
-
 	GetMaterialVector(JsonMaterialObject, "emissiveFactor", 3, RuntimeMaterial.bHasEmissiveFactor, RuntimeMaterial.EmissiveFactor);
-	if( JsonMaterialObject->HasField("emissiveFactor") )
-	{
-		UE_LOG(LogTemp, Log, TEXT("find emissive factor"));
-	}
-
 	GetMaterialTexture(JsonMaterialObject, "emissiveTexture", true, RuntimeMaterial.EmissiveTextureCache, RuntimeMaterial.EmissiveTextureMips, RuntimeMaterial.EmissiveTransform);
 
 	const TSharedPtr<FJsonObject>* JsonExtensions;
