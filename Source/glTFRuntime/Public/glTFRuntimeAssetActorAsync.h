@@ -42,6 +42,9 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "glTFRuntime", meta = (DisplayName = "On Scenes Loaded"))
 	void ReceiveOnScenesLoaded();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime_UINO")
+    bool bRightToLeftApply = false;
+
 private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"), Category="glTFRuntime")
 	USceneComponent* AssetRoot;
@@ -58,5 +61,10 @@ private:
 
 	// this is safe to share between game and async threads because everything is sequential
 	UPrimitiveComponent* CurrentPrimitiveComponent;
+
+#ifdef glTF_EXT
+    FMatrix Webgl2UnrealNoScale;
+    FMatrix Unreal2WebglNoScale;
+#endif
 
 };

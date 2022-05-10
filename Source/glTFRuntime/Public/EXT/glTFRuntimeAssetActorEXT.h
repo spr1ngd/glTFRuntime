@@ -1,12 +1,13 @@
 ﻿#pragma once
 #include "glTFRuntimeAssetActor.h"
+#include "glTFRuntimeAssetActorAsync.h"
 #include "glTFRuntimeAssetActorEXT.generated.h"
 
 // author : spr1ngd
 // desc   : add animation apis for AglTFRuntimeAssetActor
 
 UCLASS(Blueprintable, BlueprintType, meta=(THINGAPI="*"))
-class GLTFRUNTIME_API AglTFRuntimeAssetActorEXT : public AglTFRuntimeAssetActor
+class GLTFRUNTIME_API AglTFRuntimeAssetActorEXT : public AglTFRuntimeAssetActorAsync
 {
 	GENERATED_BODY()
 	

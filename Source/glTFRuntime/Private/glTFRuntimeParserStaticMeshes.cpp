@@ -7,6 +7,7 @@
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
 #endif
+#include "CodeProfiler.h"
 #include "PhysicsEngine/BodySetup.h"
 
 FglTFRuntimeStaticMeshContext::FglTFRuntimeStaticMeshContext(TSharedRef<FglTFRuntimeParser> InParser, const FglTFRuntimeStaticMeshConfig& InStaticMeshConfig) :
@@ -53,14 +54,12 @@ void FglTFRuntimeParser::LoadStaticMeshAsync(const int32 MeshIndex, FglTFRuntime
 	}
 
 	TSharedRef<FglTFRuntimeStaticMeshContext, ESPMode::ThreadSafe> StaticMeshContext = MakeShared<FglTFRuntimeStaticMeshContext, ESPMode::ThreadSafe>(AsShared(), StaticMeshConfig);
-
 	Async(EAsyncExecution::Thread, [this, StaticMeshContext, MeshIndex, AsyncCallback]()
 		{
-
-			TSharedPtr<FJsonObject> JsonMeshObject = GetJsonObjectFromRootIndex("meshes", MeshIndex);
+			
+ 			TSharedPtr<FJsonObject> JsonMeshObject = GetJsonObjectFromRootIndex("meshes", MeshIndex);
 			if (JsonMeshObject)
 			{
-
 				TArray<TSharedRef<FJsonObject>> JsonMeshObjects;
 				JsonMeshObjects.Add(JsonMeshObject.ToSharedRef());
 
@@ -126,10 +125,13 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FglTFRuntime
 		}
 		else
 		{
+			S::FCodeProfiler::BeginProfiler("ParsePrimitives");
 			if (!LoadPrimitives(JsonMeshObject, Primitives, StaticMeshConfig.MaterialsConfig))
 			{
+				S::FCodeProfiler::EndProfiler("ParsePrimitives");
 				return nullptr;
 			}
+			S::FCodeProfiler::EndProfiler("ParsePrimitives");
 		}
 
 		int32 NumUVs = 1;
@@ -160,6 +162,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FglTFRuntime
 
 		int32 VertexInstanceBaseIndex = 0;
 
+		S::FCodeProfiler::BeginProfiler("ParsePrimitivesGeometryData");
 #ifdef glTF_EXT
 		const FMatrix NormalTransform = StaticMeshConfig.LoadStaticMeshTransform.Inverse().GetTransposed();
 #endif
@@ -380,7 +383,7 @@ UStaticMesh* FglTFRuntimeParser::LoadStaticMesh_Internal(TSharedRef<FglTFRuntime
 
 			VertexInstanceBaseIndex += NumVertexInstancesPerSection;
 		}
-
+		S::FCodeProfiler::EndProfiler("ParsePrimitivesGeometryData");
 		// check for pivot repositioning
 		if (StaticMeshConfig.PivotPosition != EglTFRuntimePivotPosition::Asset)
 		{

@@ -1,10 +1,10 @@
 // Copyright 2020, Roberto De Ioris.
 
-
 #include "glTFRuntimeAssetActor.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/StaticMeshSocket.h"
 #include "Animation/AnimSequence.h"
+#include "CodeProfiler.h"
 
 // Sets default values
 AglTFRuntimeAssetActor::AglTFRuntimeAssetActor()
@@ -62,6 +62,8 @@ void AglTFRuntimeAssetActor::BeginPlay()
 			}
 		}
 	}
+
+	S::FCodeProfiler::EndAll();
 }
 
 void AglTFRuntimeAssetActor::ProcessNode(USceneComponent* NodeParentComponent, const FName SocketName, FglTFRuntimeNode& Node)
@@ -124,6 +126,7 @@ void AglTFRuntimeAssetActor::ProcessNode(USceneComponent* NodeParentComponent, c
 			{
 				StaticMeshConfig.Outer = StaticMeshComponent;
 			}
+			
 			UStaticMesh* StaticMesh = Asset->LoadStaticMesh(Node.MeshIndex, StaticMeshConfig);
 			if (StaticMesh && !StaticMeshConfig.ExportOriginalPivotToSocket.IsEmpty())
 			{

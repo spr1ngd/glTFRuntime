@@ -8,7 +8,8 @@ public class glTFRuntime : ModuleRules
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseUnity = false;
-        
+
+        OptimizeCode = CodeOptimization.Never;
         PublicDefinitions.Add("glTF_EXT");
         PublicIncludePaths.AddRange(
             new string[] {
@@ -45,7 +46,8 @@ public class glTFRuntime : ModuleRules
                 "ApplicationCore",
                 "HTTP",
                 "PhysicsCore",
-                "Projects"
+                "Projects",
+                "S",
 				// ... add private dependencies that you statically link with here ...	
 			}
             );
@@ -57,12 +59,12 @@ public class glTFRuntime : ModuleRules
             PrivateDependencyModuleNames.Add("AssetRegistry");
         }
 
-
         DynamicallyLoadedModuleNames.AddRange(
             new string[]
             {
 				// ... add any modules that your module loads dynamically here ...
 			}
             );
+        PublicDefinitions.Add("PLATFORM_WEAKLY_CONSISTENT_MEMORY=1");
     }
 }

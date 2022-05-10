@@ -8,6 +8,10 @@
 // Sets default values
 AglTFRuntimeAssetActorAsync::AglTFRuntimeAssetActorAsync()
 {
+	#ifdef glTF_EXT
+    	this->Webgl2UnrealNoScale = FTransform(FRotator(0,0,-90), FVector::ZeroVector, FVector(1,1,-1)).ToMatrixWithScale();
+    	this->Unreal2WebglNoScale = Webgl2UnrealNoScale.Inverse();
+    #endif
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
@@ -70,7 +74,17 @@ void AglTFRuntimeAssetActorAsync::ProcessNode(USceneComponent* NodeParentCompone
 			UStaticMeshComponent* StaticMeshComponent = NewObject<UStaticMeshComponent>(this, GetSafeNodeName<UStaticMeshComponent>(Node));
 			StaticMeshComponent->SetupAttachment(NodeParentComponent);
 			StaticMeshComponent->RegisterComponent();
+#ifdef glTF_EXT
+			const FRotator Rotation = Node.Transform.Rotator();
+			FTransform TransformWithoutRotation = FTransform(
+				FRotator::ZeroRotator,
+				Node.Transform.GetLocation(),
+				Node.Transform.GetScale3D());
+			StaticMeshComponent->SetRelativeTransform(TransformWithoutRotation);
+			StaticMeshConfig.LoadStaticMeshTransform = FTransform(Rotation, FVector::ZeroVector, FVector::OneVector).ToMatrixWithScale();
+#else
 			StaticMeshComponent->SetRelativeTransform(Node.Transform);
+#endif
 			AddInstanceComponent(StaticMeshComponent);
 			MeshesToLoad.Add(StaticMeshComponent, Node);
 			NewComponent = StaticMeshComponent;

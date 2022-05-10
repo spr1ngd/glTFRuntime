@@ -361,6 +361,14 @@ struct FglTFRuntimeMaterialsConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime")
 	bool bGeneratesMipMaps;
 
+#ifdef glTF_EXT
+
+	// generate mipmap in sub-thread
+	bool bGenerateMipmapUseSubThread = false;
+	bool bGenerateMipmapUseComputeShader = true;
+
+#endif
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "glTFRuntime")
 	bool bMergeSectionsByMaterial;
 
@@ -1160,6 +1168,7 @@ public:
 
 	bool LoadPrimitives(TSharedRef<FJsonObject> JsonMeshObject, TArray<FglTFRuntimePrimitive>& Primitives, const FglTFRuntimeMaterialsConfig& MaterialsConfig);
 	bool LoadPrimitive(TSharedRef<FJsonObject> JsonPrimitiveObject, FglTFRuntimePrimitive& Primitive, const FglTFRuntimeMaterialsConfig& MaterialsConfig);
+	bool LoadPrimitiveAsync(TSharedRef<FJsonObject, ESPMode::Fast>);
 
 	void AddError(const FString& ErrorContext, const FString& ErrorMessage);
 	void ClearErrors();

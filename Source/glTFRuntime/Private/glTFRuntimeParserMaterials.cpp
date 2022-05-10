@@ -1,15 +1,17 @@
 // Copyright 2022, Roberto De Ioris.
 
+#include "CodeProfiler.h"
 #include "glTFRuntimeParser.h"
 #include "glTFRuntimeImageLoader.h"
 #include "IImageWrapperModule.h"
 #include "IImageWrapper.h"
 #include "ImageUtils.h"
+#include "EXT/FglTFGenMipmapWorker.h"
+#include "EXT/FglTFGenMipmaps.hpp"
 #include "Misc/FileHelper.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Math/UnrealMathUtility.h"
 #include "Modules/ModuleManager.h"
-
 
 UMaterialInterface* FglTFRuntimeParser::LoadMaterial_Internal(const int32 Index, const FString& MaterialName, TSharedRef<FJsonObject> JsonMaterialObject, const FglTFRuntimeMaterialsConfig& MaterialsConfig, const bool bUseVertexColors)
 {
@@ -367,7 +369,17 @@ UMaterialInterface* FglTFRuntimeParser::BuildMaterial(const int32 Index, const F
 		}
 		if (Texture)
 		{
-			Material->SetTextureParameterValue(TextureName, Texture);
+#ifdef glTF_EXT
+			if( MaterialsConfig.bGeneratesMipMaps && MaterialsConfig.bGenerateMipmapUseComputeShader)
+			{
+				auto TextureRenderTarget = FglTFGenMipmaps::TextureToTextureRenderTarget2D(Texture, sRGB);
+				Material->SetTextureParameterValue(TextureName, TextureRenderTarget);
+			}
+			else
+#endif
+			{
+				Material->SetTextureParameterValue(TextureName, Texture);
+			}
 			FVector4 UVSet = FVector4(0, 0, 0, 0);
 			UVSet[Transform.TexCoord] = 1;
 			Material->SetVectorParameterValue(FName(TransformPrefix + "TexCoord"), FLinearColor(UVSet));
@@ -448,7 +460,8 @@ UMaterialInterface* FglTFRuntimeParser::BuildMaterial(const int32 Index, const F
 
 bool FglTFRuntimeParser::LoadImage(const int32 ImageIndex, TArray64<uint8>& UncompressedBytes, int32& Width, int32& Height, const FglTFRuntimeImagesConfig& ImagesConfig)
 {
-
+	S::FCodeProfiler::BeginProfiler("LoadImage");
+	
 	TSharedPtr<FJsonObject> JsonImageObject = GetJsonObjectFromRootIndex("images", ImageIndex);
 	if (!JsonImageObject)
 	{
@@ -513,6 +526,7 @@ bool FglTFRuntimeParser::LoadImage(const int32 ImageIndex, TArray64<uint8>& Unco
 	Width = ImageWrapper->GetWidth();
 	Height = ImageWrapper->GetHeight();
 
+	S::FCodeProfiler::EndProfiler("LoadImage");
 	return true;
 }
 
@@ -580,10 +594,40 @@ UTexture2D* FglTFRuntimeParser::LoadTexture(const int32 TextureIndex, TArray<Fgl
 	{
 
 		int32 NumOfMips = 1;
-
 		TArray64<FColor> UncompressedColors;
 
-		if (MaterialsConfig.bGeneratesMipMaps && FMath::IsPowerOfTwo(Width) && FMath::IsPowerOfTwo(Height))
+#ifdef glTF_EXT
+		if(MaterialsConfig.bGeneratesMipMaps && MaterialsConfig.bGenerateMipmapUseSubThread)
+		{
+			FglTFGenMipmapWorker* worker = new FglTFGenMipmapWorker();
+			worker->TextureIndex = TextureIndex;
+			worker->UncompressedBytes = UncompressedBytes;
+			worker->Width = Width;
+			worker->Height = Height;
+			worker->sRGB = sRGB;
+			worker->GenMipmapCompleted.BindLambda([this](const int32 TextureIndex, TArray<FglTFRuntimeMipMap>& Mips)
+			{
+				if( TexturesCache.Contains(TextureIndex) )
+					{
+					FglTFGenMipmaps::RebuildTextureMipmaps(TexturesCache[TextureIndex], Mips);
+					if( FglTFGenMipmaps::SyncMipmapThreads.Contains(TextureIndex) )
+					{
+						delete FglTFGenMipmaps::SyncMipmapThreads[TextureIndex];
+						FglTFGenMipmaps::SyncMipmapThreads.Remove(TextureIndex);
+					}
+				}
+			});
+			worker->Thread = FRunnableThread::Create(worker, TEXT("GenerateMipMaps"));
+			FglTFGenMipmaps::SyncMipmapThreads.Add(worker->TextureIndex, worker);
+		}
+		else
+#endif
+			if (MaterialsConfig.bGeneratesMipMaps
+#ifdef glTF_EXT
+			&& !MaterialsConfig.bGenerateMipmapUseSubThread
+			&& !MaterialsConfig.bGenerateMipmapUseComputeShader
+#endif
+			&& FMath::IsPowerOfTwo(Width) && FMath::IsPowerOfTwo(Height))
 		{
 			NumOfMips = FMath::FloorLog2(FMath::Max(Width, Height)) + 1;
 			NumOfMips = FMath::Max(NumOfMips, 5);
@@ -601,10 +645,8 @@ UTexture2D* FglTFRuntimeParser::LoadTexture(const int32 TextureIndex, TArray<Fgl
 				}
 			}
 		}
-
 		int32 MipWidth = Width;
 		int32 MipHeight = Height;
-
 		for (int32 MipIndex = 0; MipIndex < NumOfMips; MipIndex++)
 		{
 			FglTFRuntimeMipMap MipMap(TextureIndex);
@@ -631,13 +673,11 @@ UTexture2D* FglTFRuntimeParser::LoadTexture(const int32 TextureIndex, TArray<Fgl
 			}
 
 			Mips.Add(MipMap);
-
 			MipWidth = FMath::Max(MipWidth / 2, 1);
 			MipHeight = FMath::Max(MipHeight / 2, 1);
 		}
 
 	}
-
 	return nullptr;
 }
 

@@ -1,6 +1,8 @@
 // Copyright 2020-2021, Roberto De Ioris.
 
 #include "glTFRuntimeParser.h"
+
+#include "CodeProfiler.h"
 #include "EXT/glTFRuntimeParserEXT.h"
 #include "Misc/FileHelper.h"
 #include "Serialization/JsonSerializer.h"
@@ -1751,11 +1753,13 @@ bool FglTFRuntimeParser::LoadPrimitives(TSharedRef<FJsonObject> JsonMeshObject, 
 		}
 
 		FglTFRuntimePrimitive Primitive;
+		S::FCodeProfiler::BeginProfiler("ParseGeometryFromJsonToglTFRuntimePrimitives");
 		if (!LoadPrimitive(JsonPrimitiveObject.ToSharedRef(), Primitive, MaterialsConfig))
 		{
+			S::FCodeProfiler::EndProfiler("ParseGeometryFromJsonToglTFRuntimePrimitives");
 			return false;
 		}
-
+		S::FCodeProfiler::EndProfiler("ParseGeometryFromJsonToglTFRuntimePrimitives");
 		Primitives.Add(Primitive);
 	}
 
